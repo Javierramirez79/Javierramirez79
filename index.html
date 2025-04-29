@@ -1,0 +1,149 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Registro de Asistencia</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+      background-color: #f0f4f8;
+    }
+    form {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 400px;
+      margin: auto;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <form id="asistencia-form">
+    <h2>Registro de Asistencia</h2>
+
+    <label for="nombre">Nombre:</label>
+    <input type="text" id="nombre" name="nombre" required>
+
+    <label for="tipo">Tipo de Registro:</label>
+    <select id="tipo" name="tipo" required>
+      <option value="Entrada">Entrada</option>
+      <option value="Salida">Salida</option>
+    </select>
+
+    <input type="hidden" id="lat" name="lat">
+    <input type="hidden" id="lng" name="lng">
+
+    <button type="submit" id="enviar" disabled>Registrar</button>
+
+    <div id="status">Verificando ubicación...</div>
+  </form>
+
+  <script>
+    const oficinaLat = 19.4717356467361;
+    const oficinaLng = -99.23477508163236;
+    const radioPermitidoMetros = 100;
+
+    const enviarBtn = document.getElementById('enviar');
+    const statusDiv = document.getElementById('status');
+
+    function calcularDistancia(lat1, lng1, lat2, lng2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lng2 - lng1) * Math.PI / 180;
+
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+      return R * c;
+    }
+
+    function verificarUbicacion() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+
+          document.getElementById('lat').value = lat;
+          document.getElementById('lng').value = lng;
+
+          const distancia = calcularDistancia(lat, lng, oficinaLat, oficinaLng);
+          if (distancia <= radioPermitidoMetros) {
+            statusDiv.textContent = "Ubicación verificada. Puedes registrar tu asistencia.";
+            enviarBtn.disabled = false;
+          } else {
+            statusDiv.textContent = "Fuera del área permitida. No puedes registrar asistencia.";
+            enviarBtn.disabled = true;
+          }
+        }, () => {
+          statusDiv.textContent = "No se pudo obtener la ubicación.";
+          enviarBtn.disabled = true;
+        });
+      } else {
+        statusDiv.textContent = "Tu navegador no soporta geolocalización.";
+        enviarBtn.disabled = true;
+      }
+    }
+
+    window.onload = verificarUbicacion;
+
+    document.getElementById('asistencia-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const nombre = document.getElementById('nombre').value;
+      const tipo = document.getElementById('tipo').value;
+      const lat = document.getElementById('lat').value;
+      const lng = document.getElementById('lng').value;
+
+      const data = { nombre, tipo, lat, lng };
+
+      fetch("https://script.google.com/macros/s/PASTE_YOUR_WEB_APP_URL_HERE/exec", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      })
+      .then(response => response.json())
+      .then(result => {
+        if (result.status === "ok") {
+          alert("✅ Asistencia registrada correctamente.");
+          document.getElementById('asistencia-form').reset();
+          enviarBtn.disabled = true;
+          statusDiv.textContent = "Verificando ubicación...";
+          verificarUbicacion();
+        } else {
+          alert("❌ Error al registrar.");
+        }
+      })
+      .catch(error => {
+        console.error("Error:", error);
+        alert("❌ Falló la conexión con la hoja.");
+      });
+    });
+  </script>
+
+</body>
+</html>
